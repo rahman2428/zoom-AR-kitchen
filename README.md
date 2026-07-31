@@ -27,7 +27,7 @@ Standalone, real-time Mobile Kitchen Display web application for restaurant kitc
 
 | Variable | Description | Default |
 |---|---|---|
-| `NEXT_PUBLIC_MENU_API_URL` | Cross-Origin API endpoint for main menu backend | `http://localhost:3000/api/orders` |
+| `NEXT_PUBLIC_MENU_API_URL` | Cross-Origin API endpoint for main menu backend | `https://zoom-ar.vercel.app/api/orders` |
 
 ## Production Deployment
 

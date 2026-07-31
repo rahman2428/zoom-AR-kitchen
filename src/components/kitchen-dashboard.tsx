@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrderStatus, RestaurantOrder } from "@/lib/types";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_MENU_API_URL || "http://localhost:3000/api/orders";
+  process.env.NEXT_PUBLIC_MENU_API_URL || "https://zoom-ar.vercel.app/api/orders";
 
 function formatPrice(amountInr: number) {
   return `₹${amountInr.toLocaleString("en-IN")}`;
