@@ -165,7 +165,7 @@ export function KitchenDashboard() {
     fetch(`${API_URL}?verifyStaff=true`, {
       headers: { "x-kitchen-key": pinInput.trim() }
     })
-      .then((res) => {
+      .then(async (res) => {
         if (res.ok) {
           setIsAuthorized(true);
           setStaffKey(pinInput.trim());
@@ -173,6 +173,9 @@ export function KitchenDashboard() {
             sessionStorage.setItem("kitchen_staff_key", pinInput.trim());
           }
           setPinInput("");
+        } else if (res.status === 429) {
+          const errData = (await res.json().catch(() => null)) as { error?: string } | null;
+          setAuthError(errData?.error ?? "Too many failed attempts. Locked for 60 seconds.");
         } else {
           setAuthError("Invalid Staff PIN. Authorized staff PIN is 8899.");
         }
