@@ -3,8 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrderStatus, RestaurantOrder } from "@/lib/types";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_MENU_API_URL || "https://zoom-ar.vercel.app/api/orders";
+function getApiUrl() {
+  if (process.env.NEXT_PUBLIC_MENU_API_URL) {
+    return process.env.NEXT_PUBLIC_MENU_API_URL;
+  }
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return "http://localhost:3000/api/orders";
+  }
+  return "https://zoom-ar.vercel.app/api/orders";
+}
+
+const API_URL = getApiUrl();
 
 function formatPrice(amountInr: number) {
   return `₹${amountInr.toLocaleString("en-IN")}`;
