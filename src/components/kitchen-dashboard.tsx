@@ -503,7 +503,10 @@ export function KitchenDashboard() {
                     <div className="kitchen-card__total">
                       <span>Total Paid</span>
                       <strong>{formatPrice(order.totalInr)}</strong>
-                      <span className="payment-tag">{order.paymentMethod?.toUpperCase() ?? "PAID"}</span>
+                      <span className="payment-tag">
+                        {(order.paymentMethod || "upi").toUpperCase()}
+                        {order.utrNumber ? ` · UTR: ${order.utrNumber}` : ""}
+                      </span>
                     </div>
 
                     <div className="kitchen-card__actions">

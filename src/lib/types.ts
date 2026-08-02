@@ -27,5 +27,7 @@ export interface RestaurantOrder {
   status: OrderStatus;
   paymentStatus: "paid";
   paymentMethod?: PaymentMethod;
+  utrNumber?: string;
+  payeeUpi?: string;
   createdAt: string;
 }
