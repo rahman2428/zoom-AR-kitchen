@@ -77,6 +77,17 @@ export function KitchenDashboard() {
 
   const previousOrderCountRef = useRef<number | null>(null);
 
+  // Export State
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportRange, setExportRange] = useState<"24h" | "7d" | "30d">("30d");
+  const [exportEmail, setExportEmail] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatusMsg, setExportStatusMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+    mailtoUrl?: string;
+  } | null>(null);
+
   const verifyKey = useCallback(async (keyToTest: string) => {
     setAuthChecking(true);
     try {
@@ -167,6 +178,102 @@ export function KitchenDashboard() {
     }
   }
 
+  async function handleDownloadExport(format: "csv" | "json") {
+    setIsExporting(true);
+    setExportStatusMsg(null);
+    try {
+      const res = await fetch(`${API_URL}?export=true&format=${format}&range=${exportRange}`, {
+        headers: { "x-kitchen-key": staffKey }
+      });
+      if (!res.ok) {
+        throw new Error("Failed to export orders.");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `zoom_ar_orders_${exportRange}_${Date.now()}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setExportStatusMsg({
+        type: "success",
+        text: `Successfully downloaded ${format.toUpperCase()} report for ${exportRange.toUpperCase()}.`
+      });
+    } catch {
+      setExportStatusMsg({
+        type: "error",
+        text: "Error downloading order data. Ensure staff access is authorized."
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleEmailExportSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!exportEmail.trim() || !exportEmail.includes("@")) {
+      setExportStatusMsg({ type: "error", text: "Please enter a valid email address." });
+      return;
+    }
+
+    setIsExporting(true);
+    setExportStatusMsg(null);
+
+    const emailApiUrl = API_URL.endsWith("/api/orders")
+      ? `${API_URL}/export/email`
+      : `${API_URL.replace(/\/+$/, "")}/export/email`;
+
+    try {
+      const res = await fetch(emailApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-kitchen-key": staffKey
+        },
+        body: JSON.stringify({ email: exportEmail.trim(), dateRange: exportRange })
+      });
+
+      const data = (await res.json().catch(() => null)) as {
+        message?: string;
+        mailtoUrl?: string;
+        emailSent?: boolean;
+        error?: string;
+      } | null;
+
+      if (res.ok && data) {
+        setExportStatusMsg({
+          type: "success",
+          text: data.message || `Order report prepared for ${exportEmail}.`,
+          mailtoUrl: data.mailtoUrl
+        });
+      } else {
+        setExportStatusMsg({
+          type: "error",
+          text: data?.error || "Failed to process email export request."
+        });
+      }
+    } catch {
+      // Fallback client-side mailto trigger
+      const subject = encodeURIComponent(`Zoom AR Order Export (${exportRange.toUpperCase()})`);
+      const body = encodeURIComponent(
+        `Zoom AR Kitchen Order Report\nTimeframe: ${exportRange.toUpperCase()}\nTotal Orders: ${orders.length}\n`
+      );
+      const mailtoUrl = `mailto:${exportEmail.trim()}?subject=${subject}&body=${body}`;
+
+      setExportStatusMsg({
+        type: "success",
+        text: "Email payload prepared. Click below to launch your email client.",
+        mailtoUrl
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   function handlePinSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!pinInput.trim()) return;
@@ -251,6 +358,19 @@ export function KitchenDashboard() {
   const prepCount = orders.filter((o) => o.status === "preparing").length;
   const readyCount = orders.filter((o) => o.status === "ready").length;
 
+  // Filtered orders for export modal stats
+  const nowMs = Date.now();
+  const rangeCutoff =
+    exportRange === "24h"
+      ? nowMs - 24 * 60 * 60 * 1000
+      : exportRange === "7d"
+      ? nowMs - 7 * 24 * 60 * 60 * 1000
+      : nowMs - 30 * 24 * 60 * 60 * 1000;
+
+  const modalOrders = orders.filter((o) => new Date(o.createdAt).getTime() >= rangeCutoff);
+  const modalRevenue = modalOrders.reduce((sum, o) => sum + o.totalInr, 0);
+  const modalAvg = modalOrders.length > 0 ? Math.round(modalRevenue / modalOrders.length) : 0;
+
   return (
     <div className="kitchen-shell">
       <header className="kitchen-header">
@@ -258,11 +378,18 @@ export function KitchenDashboard() {
           <span className="kitchen-badge">STANDALONE KITCHEN UNIT</span>
           <div>
             <h1>Mobile Kitchen Display</h1>
-            <p>Live Orders & Prep Control Unit · Staff Authenticated</p>
+            <p>Live Orders & Prep Control Unit · 1-Month Data Retained</p>
           </div>
         </div>
 
         <div className="kitchen-header__controls">
+          <button
+            className="kitchen-btn kitchen-btn--export"
+            onClick={() => setShowExportModal(true)}
+            type="button"
+          >
+            📊 Export Data
+          </button>
           <button
             className={`kitchen-btn ${soundEnabled ? "kitchen-btn--active" : ""}`}
             onClick={() => setSoundEnabled((prev) => !prev)}
@@ -418,6 +545,141 @@ export function KitchenDashboard() {
           </div>
         )}
       </main>
+
+      {showExportModal ? (
+        <div className="export-modal-backdrop" onClick={() => setShowExportModal(false)}>
+          <div className="export-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="export-modal__header">
+              <div>
+                <h2>📊 Export Order History</h2>
+                <p>Retained for 1 Month (30 Calendar Days) · Automatic Pruning Active</p>
+              </div>
+              <button
+                className="export-modal__close"
+                onClick={() => setShowExportModal(false)}
+                type="button"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="export-modal__body">
+              {/* Date Range Selector */}
+              <div className="export-range-selector">
+                <label>Select Timeframe:</label>
+                <div className="export-range-buttons">
+                  <button
+                    className={exportRange === "24h" ? "is-selected" : ""}
+                    onClick={() => {
+                      setExportRange("24h");
+                      setExportStatusMsg(null);
+                    }}
+                    type="button"
+                  >
+                    Last 24 Hours
+                  </button>
+                  <button
+                    className={exportRange === "7d" ? "is-selected" : ""}
+                    onClick={() => {
+                      setExportRange("7d");
+                      setExportStatusMsg(null);
+                    }}
+                    type="button"
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    className={exportRange === "30d" ? "is-selected" : ""}
+                    onClick={() => {
+                      setExportRange("30d");
+                      setExportStatusMsg(null);
+                    }}
+                    type="button"
+                  >
+                    Last 30 Days (Full Month)
+                  </button>
+                </div>
+              </div>
+
+              {/* Timeframe Analytics Summary */}
+              <div className="export-analytics">
+                <div className="export-stat">
+                  <span>Orders</span>
+                  <strong>{modalOrders.length}</strong>
+                </div>
+                <div className="export-stat">
+                  <span>Revenue</span>
+                  <strong>{formatPrice(modalRevenue)}</strong>
+                </div>
+                <div className="export-stat">
+                  <span>Avg Ticket</span>
+                  <strong>{formatPrice(modalAvg)}</strong>
+                </div>
+              </div>
+
+              {/* Export Download Section */}
+              <div className="export-section">
+                <h3>📥 Download Data Files</h3>
+                <p>Export complete order records with table numbers, timestamps, items & payment signatures.</p>
+                <div className="export-download-btns">
+                  <button
+                    className="export-btn export-btn--csv"
+                    disabled={isExporting}
+                    onClick={() => void handleDownloadExport("csv")}
+                    type="button"
+                  >
+                    📄 Download CSV (.csv)
+                  </button>
+                  <button
+                    className="export-btn export-btn--json"
+                    disabled={isExporting}
+                    onClick={() => void handleDownloadExport("json")}
+                    type="button"
+                  >
+                    ⚙️ Download JSON (.json)
+                  </button>
+                </div>
+              </div>
+
+              {/* Email Delivery Section */}
+              <div className="export-section">
+                <h3>✉️ Email Report to Manager</h3>
+                <p>Send an automated CSV report and revenue summary directly to your management email.</p>
+                <form className="export-email-form" onSubmit={handleEmailExportSubmit}>
+                  <input
+                    type="email"
+                    placeholder="Enter manager email (e.g. manager@restaurant.com)"
+                    value={exportEmail}
+                    onChange={(e) => setExportEmail(e.target.value)}
+                    required
+                  />
+                  <button className="export-btn export-btn--email" disabled={isExporting} type="submit">
+                    {isExporting ? "Sending..." : "✉️ Send Email"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Feedback Alert */}
+              {exportStatusMsg ? (
+                <div className={`export-status export-status--${exportStatusMsg.type}`}>
+                  <p>{exportStatusMsg.text}</p>
+                  {exportStatusMsg.mailtoUrl ? (
+                    <a
+                      className="export-mailto-link"
+                      href={exportStatusMsg.mailtoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      ✉️ Open Email Client
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
+
