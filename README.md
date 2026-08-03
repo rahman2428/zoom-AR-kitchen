@@ -3,7 +3,7 @@
 Standalone, real-time Mobile Kitchen Display web application for restaurant kitchen staff.
 
 ## Features
-- **Staff PIN Authentication**: Access protected by default PIN `8899` or custom `KITCHEN_STAFF_KEY`.
+- **Staff PIN Authentication**: Access protected by default PIN `9852` or custom `KITCHEN_STAFF_KEY`.
 - **CORS API Synchronization**: Polls live paid orders from main AR Restaurant backend (`http://localhost:3000/api/orders`).
 - **Live Chime Alerts**: Dual-tone Web Audio chime when new orders arrive.
 - **One-Tap Status Controls**: `Start Prep` → `Mark Ready` → `Complete Order`.
@@ -21,7 +21,7 @@ Standalone, real-time Mobile Kitchen Display web application for restaurant kitc
    npm run dev
    ```
 
-3. Open `http://localhost:3001` in any desktop browser, tablet, or smartphone. Log in with Staff PIN `8899`.
+3. Open `http://localhost:3001` in any desktop browser, tablet, or smartphone. Log in with Staff PIN `9852`.
 
 ## Environment Variables
 
