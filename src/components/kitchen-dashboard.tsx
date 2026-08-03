@@ -117,6 +117,22 @@ export function KitchenDashboard() {
     }
   }, [verifyKey]);
 
+function mergeLocalOrders(existing: RestaurantOrder[], incoming: RestaurantOrder[]): RestaurantOrder[] {
+  const map = new Map<string, RestaurantOrder>();
+  for (const o of existing) {
+    if (o && o.orderId) map.set(o.orderId, o);
+  }
+  for (const o of incoming) {
+    if (o && o.orderId) {
+      const prev = map.get(o.orderId);
+      map.set(o.orderId, prev ? { ...prev, ...o } : o);
+    }
+  }
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return merged;
+}
+
   const fetchOrders = useCallback(async () => {
     if (!staffKey) return;
     try {
@@ -126,7 +142,45 @@ export function KitchenDashboard() {
       });
       if (!res.ok) return;
       const data = (await res.json()) as { orders?: RestaurantOrder[] };
-      const fetchedOrders = data.orders ?? [];
+      let fetchedOrders = data.orders ?? [];
+
+      let localBackup: RestaurantOrder[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("zoom_ar_kitchen_orders_backup");
+          if (raw) localBackup = JSON.parse(raw);
+        } catch {
+          // ignore parsing error
+        }
+      }
+
+      const missingFromServer = localBackup.filter(
+        (b) => !fetchedOrders.some((f) => f.orderId === b.orderId)
+      );
+
+      if (missingFromServer.length > 0) {
+        try {
+          await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-kitchen-key": staffKey
+            },
+            body: JSON.stringify({
+              action: "rehydrate",
+              rehydrateOrders: localBackup
+            })
+          });
+        } catch {
+          // Ignore network errors
+        }
+        fetchedOrders = mergeLocalOrders(fetchedOrders, missingFromServer);
+      }
+
+      const updatedBackup = mergeLocalOrders(localBackup, fetchedOrders);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("zoom_ar_kitchen_orders_backup", JSON.stringify(updatedBackup));
+      }
 
       if (
         previousOrderCountRef.current !== null &&
@@ -139,7 +193,19 @@ export function KitchenDashboard() {
       previousOrderCountRef.current = fetchedOrders.length;
       setOrders(fetchedOrders);
     } catch {
-      // Ignore polling errors
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("zoom_ar_kitchen_orders_backup");
+          if (raw) {
+            const backup = JSON.parse(raw);
+            if (Array.isArray(backup) && backup.length > 0) {
+              setOrders(backup);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -167,9 +233,13 @@ export function KitchenDashboard() {
       });
 
       if (res.ok) {
-        setOrders((prev) =>
-          prev.map((ord) => (ord.orderId === orderId ? { ...ord, status: nextStatus } : ord))
-        );
+        setOrders((prev) => {
+          const updated = prev.map((ord) => (ord.orderId === orderId ? { ...ord, status: nextStatus } : ord));
+          if (typeof window !== "undefined") {
+            localStorage.setItem("zoom_ar_kitchen_orders_backup", JSON.stringify(updated));
+          }
+          return updated;
+        });
       }
     } catch {
       // Ignore transient errors
