@@ -113,8 +113,15 @@ export function KitchenDashboard() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const stored = sessionStorage.getItem("kitchen_staff_key") || "8899";
-      void verifyKey(stored);
+      const stored = sessionStorage.getItem("kitchen_staff_key");
+      if (stored) {
+        void verifyKey(stored);
+      } else {
+        setIsAuthorized(false);
+        setAuthChecking(false);
+      }
+    } else {
+      setAuthChecking(false);
     }
   }, [verifyKey]);
 
@@ -367,7 +374,7 @@ function mergeLocalOrders(existing: RestaurantOrder[], incoming: RestaurantOrder
           const errData = (await res.json().catch(() => null)) as { error?: string } | null;
           setAuthError(errData?.error ?? "Too many failed attempts. Locked for 60 seconds.");
         } else {
-          setAuthError("Invalid Staff PIN. Authorized staff PIN is 8899.");
+          setAuthError("Invalid Staff PIN.");
         }
       })
       .catch(() => setAuthError("Network error verifying PIN. Ensure main API server is running."));
@@ -397,27 +404,64 @@ function mergeLocalOrders(existing: RestaurantOrder[], incoming: RestaurantOrder
         <div className="kitchen-auth-card">
           <div className="kitchen-auth-header">
             <span className="auth-icon">🔒</span>
-            <h2>Standalone Mobile Kitchen Display</h2>
-            <p>Access restricted exclusively to authorized kitchen personnel.</p>
+            <h2>Kitchen Access Locked</h2>
+            <p>Access restricted exclusively to authorized kitchen staff.</p>
           </div>
           <form className="kitchen-auth-form" onSubmit={handlePinSubmit}>
             <label>
-              Enter Kitchen Staff PIN / Key
+              Enter Kitchen Staff PIN
               <input
                 type="password"
-                placeholder="Enter PIN (Default: 8899)"
+                placeholder="••••"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
+                maxLength={12}
                 autoFocus
               />
             </label>
+
+            {/* Touch Keypad for Kitchen Tablets & Phones */}
+            <div className="pin-keypad">
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
+                <button
+                  type="button"
+                  key={num}
+                  className="keypad-btn"
+                  onClick={() => setPinInput((prev) => prev + num)}
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="keypad-btn keypad-clear"
+                onClick={() => setPinInput("")}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="keypad-btn"
+                onClick={() => setPinInput((prev) => prev + "0")}
+              >
+                0
+              </button>
+              <button
+                type="button"
+                className="keypad-btn keypad-back"
+                onClick={() => setPinInput((prev) => prev.slice(0, -1))}
+              >
+                ⌫
+              </button>
+            </div>
+
             {authError ? <p className="auth-error">{authError}</p> : null}
             <button className="kitchen-auth-btn" type="submit">
-              Authenticate Staff Access
+              🔓 Unlock Kitchen Dashboard
             </button>
           </form>
           <div className="kitchen-auth-footer">
-            <span>API Server: <code>{API_URL}</code></span>
+            <span>🛡️ Protected by API Rate Limiter & IP Lockout</span>
           </div>
         </div>
       </div>

@@ -836,3 +836,46 @@ code {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* Kitchen Lock Screen Numeric Keypad */
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.keypad-btn {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.keypad-btn:hover {
+  background: rgba(216, 177, 91, 0.25);
+  border-color: rgba(216, 177, 91, 0.5);
+  color: #f1d189;
+  transform: translateY(-1px);
+}
+
+.keypad-btn:active {
+  transform: scale(0.95);
+}
+
+.keypad-clear {
+  color: #ef4444;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.keypad-back {
+  color: #f59e0b;
+  font-size: 1.1rem;
+}
+
