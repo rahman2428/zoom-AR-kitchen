@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrderStatus, RestaurantOrder } from "@/lib/types";
+import { playStageSound } from "@/lib/sounds";
 
 function getApiUrl() {
   if (process.env.NEXT_PUBLIC_MENU_API_URL) {
@@ -233,6 +234,9 @@ function mergeLocalOrders(existing: RestaurantOrder[], incoming: RestaurantOrder
       });
 
       if (res.ok) {
+        if (soundEnabled) {
+          playStageSound(nextStatus);
+        }
         setOrders((prev) => {
           const updated = prev.map((ord) => (ord.orderId === orderId ? { ...ord, status: nextStatus } : ord));
           if (typeof window !== "undefined") {
